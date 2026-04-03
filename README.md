@@ -54,28 +54,31 @@ Pick a model, embed your data, store the vectors in VectorAI DB. All models belo
 
 ### Supported platforms
 
-* The VectorAI DB Docker image is currently supported only on Linux/amd64 (x86_64).
+* The VectorAI DB Docker image supports **Linux/amd64 (x86_64)** and **Linux/arm64 (Apple Silicon, AWS Graviton, etc.)**.
     * Supported on Windows using WSL2 (Docker Desktop or Podman Desktop).
-    * macOS support on Apple chipsets (M2/M3/M4) through Rosetta 2 and specifying linux/amd64 as platform. 
-        * Install Rosetta 2 by running `softwareupdate --install-rosetta --agree-to-license`.
-        * Add `--platform linux/amd64` to Docker commands.
-        * **Note:** M4 Apple Silicons might encounter a GRPC disconnection error without any container logs. In this case, disable Rosetta in Docker Desktop
+    * Native support on macOS Apple Silicon (M1/M2/M3/M4) — no Rosetta or platform flags needed.
+    * Docker will automatically pull the correct architecture when using the `latest` or `nightly-20260331` tags.
 
-* The Python client package is supported on all major platforms (Windows, macOS, and Linux).
+* The Python client package (`actian-vectorai`) is supported on all major platforms (Windows, macOS, and Linux).
     * Python 3.10 or higher is required.
 
 ## Features
 
-- 🚀 **Async & Sync clients** - Full async/await support with `AsyncCortexClient`
-- 🔐 **Persistent storage** - Production-grade data persistence
-- 🔍 **Type-safe Filter DSL** - Fluent API for payload filtering
-- ⚡ **Smart Batching** - Automatic request batching for high throughput
-- 📦 **Pydantic models** - Type hints and validation throughout
-- 🎯 **gRPC transport** - High-performance communication
+- 🚀 **Async & Sync clients** — Full async/await with `AsyncVectorAIClient`, synchronous wrapper with `VectorAIClient`
+- 🗂️ **Namespaced API** — `client.collections`, `client.points`, `client.vde`
+- 🔍 **Type-safe Filter DSL** — Fluent `Field` / `FilterBuilder` API for payload filtering
+- 🔀 **Hybrid Fusion** — Client-side RRF and DBSF for multi-query result merging
+- 🛠️ **VDE Operations** — Engine lifecycle, snapshots, rebuilds, compaction
+- ⚡ **Smart Batching** — Automatic request batching with `SmartBatcher`
+- 📦 **Pydantic models** — Type hints and validation throughout
+- 🎯 **gRPC + REST transport** — gRPC primary transport with REST fallback
+- 🔐 **Persistent storage** — Production-grade data persistence
 
-## Quick Install – Pull from DockerHub
+## Quick Install — Pull from DockerHub
 
-1. Make sure you have [Docker](https://docs.docker.com/get-docker/) installed. **Note to Mac users with Apple Silicon:** Docker Desktop automatically handles running this amd64 image on your ARM Mac.
+The Docker image is multi-arch: Docker will automatically pull the correct build for your platform (amd64 or arm64).
+
+1. Make sure you have [Docker](https://docs.docker.com/get-docker/) installed.
 
 2. Clone this repository.
 
@@ -99,28 +102,37 @@ Pick a model, embed your data, store the vectors in VectorAI DB. All models belo
    docker compose down
 ```
 
-## Setup for M1 Macbook Users
+## Quick Setup (macOS / Linux)
 
-**Step 1:** Clone repo from GitHub
+**Step 1:** Clone this repo and have Docker Desktop running.
 
-**Step 2:** Have Docker Desktop running
+**Step 2:** Run `docker compose up` in the root folder. Docker auto-selects the correct image for your architecture (Intel or Apple Silicon).
 
-**Step 3:** Run `docker compose up` in the root folder of the db. **Note:** you might encounter a platform incompatibility warning, you can ignore that
-
-**Step 4:** In a new terminal window in the same folder make the Python virtual environment using `python3.11 -m venv .venv`
-
-**Step 5:** Run `source .venv/bin/activate` to activate virtual environment
-
-**Step 6:** Run `pip install ./actiancortex-0.1.0b1-py3-none-any.whl` to install the VectorAI DB Python client from the bundled wheel file
-
-**Step 7:** Validate by running `PYTHONPATH=. python examples/quick_start.py`
-
-## 📥 Docker container installation – with the .tar image file (not included in this repository)
-
-Load the container archive into your container environment:
+**Step 3:** In a new terminal, create and activate a Python virtual environment:
 
 ```bash
-docker image load -i Actian_VectorAI_DB_Beta.tar
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+**Step 4:** Install the VectorAI DB Python client:
+
+```bash
+pip install ./actian_vectorai-0.1.0b2-py3-none-any.whl
+```
+
+**Step 5:** Validate by running `python examples/quick_start.py`
+
+## 📥 Docker container installation — with the .tar image file (not included in this repository)
+
+Architecture-specific image archives are available:
+
+```bash
+# For ARM64 (Apple Silicon, Graviton, etc.)
+docker image load -i DOCKER_ActianVectorAI-arm64-nightly-20260331.tar
+
+# For x86_64 / AMD64
+docker image load -i DOCKER_ActianVectorAI-x64-nightly-20260331.tar
 ```
 
 ### Container ports and volumes
@@ -132,14 +144,14 @@ The container exposes port `50051` and stores its logs and persisted collections
 ports:
   - "50052:50051"  # Use any free port on the left side
 ```
-Then connect with `CortexClient("localhost:50052")`.
+Then connect with `VectorAIClient("localhost:50052")`.
 
 ### Deploy container with Docker run
 
 To deploy the container using `docker run`:
 
 ```bash
-docker run -d --name vectoraidb -v ./data:/data -p 50051:50051 localhost/actian/vectoraidb:1.0b
+docker run -d --name vectoraidb -v ./data:/data -p 50051:50051 williamimoh/actian-vectorai-db:latest
 ```
 
 ### Deploy container with Docker compose
@@ -149,8 +161,7 @@ To deploy the container using `docker compose`, create a `docker-compose.yml` fi
 ```yaml
 services:
     vectoraidb:
-       image: localhost/actian/vectoraidb:1.0b
-       #platform: linux/amd64   # Uncomment on macOS
+       image: williamimoh/actian-vectorai-db:latest
        container_name: vectoraidb
        ports:
          - "50051:50051"
@@ -198,7 +209,13 @@ python -m venv .venv
 Install the Python client with pip:
 
 ```bash
-pip install actiancortex-0.1.0b1-py3-none-any.whl
+pip install actian_vectorai-0.1.0b2-py3-none-any.whl
+```
+
+Or install from PyPI:
+
+```bash
+pip install actian-vectorai
 ```
 
 **_For detailed API documentation, see [docs/api.md](./docs/api.md)._**
@@ -210,58 +227,58 @@ Sync client and async client quickstarts are available.
 ### Sync client
 
 ```python
-from cortex import CortexClient, DistanceMetric
+from actian_vectorai import VectorAIClient, VectorParams, Distance, PointStruct
 
-with CortexClient("localhost:50051") as client:
+with VectorAIClient("localhost:50051") as client:
     # Health check
-    version, uptime = client.health_check()
-    print(f"Connected to {version}")
+    info = client.health_check()
+    print(f"Connected to {info['title']} v{info['version']}")
 
     # Create collection
-    client.create_collection(
-        name="products",
-        dimension=128,
-        distance_metric=DistanceMetric.COSINE,
-    )
-
-    # Insert vectors
-    client.upsert("products", id=0, vector=[0.1]*128, payload={"name": "Product A"})
-
-    # Batch insert
-    client.batch_upsert(
+    client.collections.create(
         "products",
-        ids=[1, 2, 3],
-        vectors=[[0.2]*128, [0.3]*128, [0.4]*128],
-        payloads=[{"name": f"Product {i}"} for i in [1, 2, 3]],
+        vectors_config=VectorParams(size=128, distance=Distance.Cosine),
     )
+
+    # Insert points
+    client.points.upsert("products", [
+        PointStruct(id=1, vector=[0.1] * 128, payload={"name": "Widget"}),
+        PointStruct(id=2, vector=[0.2] * 128, payload={"name": "Gadget"}),
+        PointStruct(id=3, vector=[0.3] * 128, payload={"name": "Gizmo"}),
+    ])
 
     # Search
-    results = client.search("products", query=[0.1]*128, top_k=5)
+    results = client.points.search("products", vector=[0.15] * 128, limit=5)
     for r in results:
-        print(f"ID: {r.id}, Score: {r.score}")
+        print(f"  id={r.id}  score={r.score:.4f}  payload={r.payload}")
 
-    # Cleanup
-    client.delete_collection("products")
+    # Clean up
+    client.collections.delete("products")
 ```
 
 ### Async client
 
 ```python
 import asyncio
-from cortex import AsyncCortexClient
+from actian_vectorai import AsyncVectorAIClient, VectorParams, Distance, PointStruct
 
 async def main():
-    async with AsyncCortexClient("localhost:50051") as client:
-        # All methods are async
-        await client.create_collection("demo", 128)
-        await client.upsert("demo", id=0, vector=[0.1]*128)
-        results = await client.search("demo", [0.1]*128, top_k=5)
-        await client.delete_collection("demo")
+    async with AsyncVectorAIClient("localhost:50051") as client:
+        await client.collections.create(
+            "demo",
+            vectors_config=VectorParams(size=128, distance=Distance.Cosine),
+        )
+        await client.points.upsert("demo", [
+            PointStruct(id=1, vector=[0.1] * 128, payload={"tag": "hello"}),
+        ])
+        results = await client.points.search("demo", vector=[0.1] * 128, limit=5)
+        print(results)
+        await client.collections.delete("demo")
 
 asyncio.run(main())
 ```
 
-**Note:** To use the sync `CortexClient` in async contexts (e.g., MCP servers, FastAPI), wrap calls with `asyncio.to_thread()`. For fully async code, use `AsyncCortexClient` instead.
+**Note:** To use the sync `VectorAIClient` in async contexts (e.g., MCP servers, FastAPI), wrap calls with `asyncio.to_thread()`. For fully async code, use `AsyncVectorAIClient` instead.
 
 ## What Can I Do With Retrieved Vectors?
 
@@ -280,69 +297,119 @@ for result in results:
 
 ## 📚 Core API
 
+The client uses a **namespaced architecture** — operations are grouped by domain:
+
+| Namespace | Access | Description |
+|-----------|--------|-------------|
+| **Collections** | `client.collections` | Create, list, delete, update collections |
+| **Points** | `client.points` | CRUD, search, query, payload, indexing |
+| **VDE** | `client.vde` | Engine lifecycle, snapshots, rebuilds, compaction |
+
 ### Collection management
 
-| Method                                      | Description              |
-| ------------------------------------------- | ------------------------ |
-| `create_collection(name, dimension, ...)`   | Create new collection    |
-| `delete_collection(name)`                   | Delete collection        |
-| `has_collection(name)`                      | Check if exists          |
-| `collection_exists(name)`                   | Alias for has_collection |
-| `recreate_collection(name, dimension, ...)` | Delete and recreate      |
-| `open_collection(name)`                     | Open for operations      |
-| `close_collection(name)`                    | Close collection         |
+```python
+client.collections.create("my_col", vectors_config=VectorParams(size=128, distance=Distance.Cosine))
+client.collections.list()                     # -> ["my_col", ...]
+client.collections.get_info("my_col")         # -> CollectionInfo
+client.collections.exists("my_col")           # -> True
+client.collections.delete("my_col")
+```
 
-### Vector operations
+### Point operations
 
-| Method                                             | Description                 |
-| -------------------------------------------------- | --------------------------- |
-| `upsert(collection, id, vector, payload)`          | Insert/update single vector |
-| `batch_upsert(collection, ids, vectors, payloads)` | Batch insert                |
-| `get(collection, id)`                              | Get vector by ID            |
-| `get_many(collection, ids)`                        | Get multiple vectors        |
-| `retrieve(collection, ids)`                        | Alias for get_many          |
-| `delete(collection, id)`                           | Delete vector               |
-| `count(collection)`                                | Get vector count            |
-| `scroll(collection, limit, cursor)`                | Paginate through vectors    |
+```python
+# Upsert
+client.points.upsert("col", [PointStruct(id=1, vector=[...], payload={...})])
+
+# Get by ID
+points = client.points.get("col", ids=[1, 2, 3])
+
+# Delete
+client.points.delete("col", ids=[1, 2])
+
+# Count
+n = client.points.count("col")
+
+# Bulk upload with auto-batching
+total = client.upload_points("col", points, batch_size=256)
+```
 
 ### Search operations
 
-| Method                                              | Description     |
-| --------------------------------------------------- | --------------- |
-| `search(collection, query, top_k)`                  | K-NN search     |
-| `search_filtered(collection, query, filter, top_k)` | Filtered search |
+```python
+# Vector similarity search
+results = client.points.search("col", vector=[...], limit=10)
 
-### Maintenance
+# Filtered search
+from actian_vectorai import Field, FilterBuilder
+f = FilterBuilder().must(Field("price").lte(100.0)).build()
+results = client.points.search("col", vector=[...], limit=10, filter=f)
 
-| Method                  | Description         |
-| ----------------------- | ------------------- |
-| `flush(collection)`     | Flush to disk       |
-| `get_stats(collection)` | Get statistics      |
-| `health_check()`        | Check server health |
+# Batch search
+batch = client.points.search_batch("col", [
+    {"vector": query1, "limit": 5},
+    {"vector": query2, "limit": 10},
+])
+```
+
+### VDE operations
+
+```python
+client.vde.open_collection("col")
+client.vde.get_state("col")          # -> CollectionState.READY
+client.vde.get_stats("col")          # -> CollectionStats
+client.vde.flush("col")
+client.vde.save_snapshot("col")
+client.vde.rebuild_index("col")
+client.vde.compact_collection("col")
+client.vde.close_collection("col")
+```
 
 ## 🔍 Filter DSL
 
 Type-safe filter building for payload queries:
 
 ```python
-from cortex.filters import Filter, Field
+from actian_vectorai import Field, FilterBuilder, has_id, is_empty
 
-# Simple conditions
-filter = Filter().must(Field("category").eq("electronics"))
+# Equality
+f = FilterBuilder().must(Field("category").eq("electronics")).build()
 
-# Range conditions
-filter = Filter().must(Field("price").range(gte=100, lte=500))
+# Range
+f = FilterBuilder().must(Field("price").between(100.0, 500.0)).build()
 
 # Combined conditions
-filter = (
-    Filter()
+f = (
+    FilterBuilder()
     .must(Field("category").eq("electronics"))
-    .must(Field("price").lte(500))
+    .must(Field("price").lte(500.0))
     .must_not(Field("deleted").eq(True))
+    .build()
 )
 
+# Operator syntax
+cond = Field("category").eq("electronics") & Field("price").lte(500.0)
+f = cond.build()
+
 # Use in search
-results = client.search_filtered("products", query_vector, filter, top_k=10)
+results = client.points.search("products", vector=query_vector, limit=10, filter=f)
+```
+
+## 🔀 Hybrid Fusion
+
+Combine results from multiple search queries:
+
+```python
+from actian_vectorai import reciprocal_rank_fusion, distribution_based_score_fusion
+
+dense  = client.points.search("col", vector=dense_query,  limit=50)
+sparse = client.points.search("col", vector=sparse_query, limit=50)
+
+# Reciprocal Rank Fusion
+fused = reciprocal_rank_fusion([dense, sparse], limit=10, weights=[0.7, 0.3])
+
+# Distribution-Based Score Fusion
+fused = distribution_based_score_fusion([dense, sparse], limit=10)
 ```
 
 ## 📖 Examples
@@ -379,7 +446,7 @@ python examples/batch_upsert.py
 
 ## 📊 Storage
 
-Cortex uses persistent storage as the default backend. This provides:
+VectorAI DB uses persistent storage as the default backend. This provides:
 
 - ✅ Production-grade persistence
 - ✅ Transactional safety
@@ -390,27 +457,46 @@ Cortex uses persistent storage as the default backend. This provides:
 ### HNSW parameters
 
 ```python
-client.create_collection(
-    name="vectors",
-    dimension=128,
-    hnsw_m=32,              # Edges per node (default: 16)
-    hnsw_ef_construct=256,  # Build-time neighbors (default: 200)
-    hnsw_ef_search=100,     # Search-time neighbors (default: 50)
+from actian_vectorai import VectorParams, Distance, HnswConfigDiff
+
+client.collections.create(
+    "vectors",
+    vectors_config=VectorParams(size=128, distance=Distance.Cosine),
+    hnsw_config=HnswConfigDiff(
+        m=32,              # Edges per node (default: 16)
+        ef_construct=256,  # Build-time neighbors (default: 200)
+    ),
 )
 ```
 
 ### Distance metrics
 
-- `COSINE` - Cosine similarity (default, recommended for normalized vectors)
-- `EUCLIDEAN` - L2 distance
-- `DOT` - Dot product
+- `Distance.Cosine` — Cosine similarity (default, recommended for normalized vectors)
+- `Distance.Euclid` — L2 distance
+- `Distance.Dot` — Dot product
 
 ## 📦 Dependencies
 
-- `grpcio>=1.68.1` - gRPC transport
-- `protobuf>=5.29.2` - Protocol buffers
-- `numpy>=2.2.1` - Vector operations
-- `pydantic>=2.10.4` - Data validation
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `grpcio` | >= 1.70.0 | gRPC transport |
+| `protobuf` | >= 5.29.2 | Protocol buffer serialisation |
+| `pydantic` | >= 2.10.0 | Data models and validation |
+| `numpy` | >= 1.26.0 | Vector array operations |
+
+## 📊 Current Status (v0.1.0b2)
+
+**44 of 67** SDK methods are fully available against Actian VectorAI DB v1.0.0.
+The remaining 23 methods are implemented client-side and will activate
+once the server adds support. See the full
+[Server Availability Status](docs/api.md#server-availability-status) for details.
+
+### Verified on live server (Actian VectorAI DB 1.0.0 / VDE 1.0.0)
+
+- `has_id` filters validated for both numeric IDs and UUID IDs
+- Named-vector collections validated end-to-end
+- Dynamic `create_field_index` remains server-side `UNIMPLEMENTED`
+- Sparse-vector and multi-dense-vector write paths remain under server development
 
 ## 🐞 Known issues
 
@@ -420,7 +506,7 @@ client.create_collection(
 
 ## 📄 License
 
-Proprietary - Actian Corporation
+Proprietary — Actian Corporation
 
 ---
 
