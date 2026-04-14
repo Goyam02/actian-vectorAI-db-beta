@@ -1,0 +1,17 @@
+# FastAPI and web server
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Actian VectorAI DB Client
+actian-vectorai
+
+# Embedding models
+sentence-transformers>=2.2.0
+
+# Optional: OpenAI for full RAG with LLM
+openai>=1.0.0
+
+# Optional: Ollama for local LLM
+ollama>=0.1.0
